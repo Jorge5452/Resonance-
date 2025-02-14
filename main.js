@@ -1,3 +1,6 @@
+// Agregar log al inicio del archivo para ver cuándo se carga main.js
+console.log("main.js: Inicio de la carga");
+
 // Variables globales
 var player
 var isAdmin = false
@@ -6,17 +9,23 @@ var currentSongIndex = 0
 var isPlaying = false
 var savedPlaylists = {}
 
-// Include the YouTube IFrame Player API script
-var tag = document.createElement("script")
-tag.src = "https://www.youtube.com/iframe_api"
-var firstScriptTag = document.getElementsByTagName("script")[0]
-firstScriptTag.parentNode.insertBefore(tag, firstScriptTag)
+// Verificar si la API de YouTube ya está cargada antes de inyectarla
+if (!window.YT || !window.YT.Player) {
+  var tag = document.createElement("script")
+  tag.src = "https://www.youtube.com/iframe_api"
+  var firstScriptTag = document.getElementsByTagName("script")[0]
+  firstScriptTag.parentNode.insertBefore(tag, firstScriptTag)
+  console.log("main.js: API de YouTube agregada dinámicamente")
+} else {
+  console.log("main.js: API de YouTube ya estaba cargada")
+}
 
 // Declare YT variable globally.  This is necessary because the YouTube IFrame API adds the YT object to the global scope.
 var YT
 
 // Función requerida por la API de YouTube para inicializar el reproductor
 function onYouTubeIframeAPIReady() {
+  console.log("main.js: onYouTubeIframeAPIReady se ha llamado")
   player = new YT.Player("player", {
     height: "360",
     width: "640",
@@ -30,6 +39,7 @@ function onYouTubeIframeAPIReady() {
 
 // Se ejecuta cuando el reproductor está listo
 function onPlayerReady(event) {
+  console.log("main.js: onPlayerReady se ha llamado")
   updateVolume()
   updateVideoInfo() // Añadir esta línea
 }
@@ -107,6 +117,7 @@ function loadSong(index) {
 
 // Actualiza la interfaz de la playlist con soporte para selección y reordenación por DRAG & DROP
 function updatePlaylistUI() {
+  console.log("updatePlaylistUI: Updating playlist UI. Total songs:", playlist.length);
   const playlistElement = document.getElementById("playlist")
   playlistElement.innerHTML = ""
 
@@ -275,6 +286,7 @@ function loadSavedPlaylist(name) {
 
 // Actualizar la interfaz de playlists guardadas
 function updateSavedPlaylistsUI(playlists) {
+  console.log("updateSavedPlaylistsUI: Received saved playlists", playlists);
   const savedPlaylistsElement = document.getElementById("savedPlaylists")
   savedPlaylistsElement.innerHTML = ""
   Object.keys(playlists).forEach((name) => {
@@ -323,11 +335,14 @@ function updateVideoInfo() {
 function connectWebSocket() {
   window.socket = new WebSocket("ws://localhost:6789")
   socket.onopen = function() {
+    console.log("connectWebSocket: Connection opened.");
+    console.log("connectWebSocket: Sending register message for username:", window.username);
     socket.send(JSON.stringify({ type: "register", username: window.username }))
     // Solicitar las playlists guardadas desde el servidor al conectar
     loadSavedPlaylists();
   }
   socket.onmessage = function(event) {
+    console.log("connectWebSocket: Message received:", event.data);
     const data = JSON.parse(event.data)
     if (data.type === "chat") {
       addChatMessage(data.username + ": " + data.message)
@@ -392,6 +407,7 @@ function connectWebSocket() {
 // NUEVA FUNCIÓN: Solicita las playlists guardadas al servidor
 // =======================
 function loadSavedPlaylists() {
+  console.log("loadSavedPlaylists: Requesting saved playlists");
   if (window.socket && window.socket.readyState === WebSocket.OPEN) {
     window.socket.send(JSON.stringify({ type: "playlist_load" }))
   }
@@ -401,6 +417,8 @@ function loadSavedPlaylists() {
 // INICIALIZACIÓN al cargar el DOM
 // =======================
 document.addEventListener("DOMContentLoaded", () => {
+  console.log("main.js: DOMContentLoaded event fired.");
+  
   // Manejo del modal de nombre de usuario
   const usernameModal = document.getElementById("usernameModal")
   const usernameInput = document.getElementById("usernameInput")
@@ -423,7 +441,16 @@ document.addEventListener("DOMContentLoaded", () => {
   const chatHistoryElement = document.getElementById("chatHistory")
   const storedChat = localStorage.getItem("chatHistory")
   if (storedChat) {
-    JSON.parse(storedChat).forEach(addChatMessage)
+    try {
+      const parsedChat = JSON.parse(storedChat)
+      console.log("DOMContentLoaded: Loaded chat history. Total messages:", parsedChat.length);
+      parsedChat.forEach(addChatMessage)
+    } catch(e) {
+      console.error("DOMContentLoaded: Error parsing chat history. Clearing chat history.", e);
+      localStorage.removeItem("chatHistory");
+    }
+  } else {
+    console.log("DOMContentLoaded: No chat history found.");
   }
 
   // Evento para agregar una canción al playlist en vivo (sin recargar la página)
@@ -638,16 +665,28 @@ function updateButtonStates() {
 
 // Agregar mensaje al chat
 function addChatMessage(message) {
-  const chatHistoryElement = document.getElementById("chatHistory")
-  const p = document.createElement("p")
-  p.className = "bg-gray-700 p-2 rounded"
-  p.textContent = message
-  chatHistoryElement.appendChild(p)
-  chatHistoryElement.scrollTop = chatHistoryElement.scrollHeight
+  console.log("addChatMessage: Adding chat message:", message);
+  const chatHistoryElement = document.getElementById("chatHistory");
+  const p = document.createElement("p");
+  p.className = "bg-gray-700 p-2 rounded";
+  p.textContent = message;
+  chatHistoryElement.appendChild(p);
+  chatHistoryElement.scrollTop = chatHistoryElement.scrollHeight;
 
-  const chatMessages = JSON.parse(localStorage.getItem("chatHistory") || "[]")
-  chatMessages.push(message)
-  localStorage.setItem("chatHistory", JSON.stringify(chatMessages))
+  let chatMessages = [];
+  try {
+    const storedChat = localStorage.getItem("chatHistory");
+    if (storedChat) {
+      chatMessages = JSON.parse(storedChat);
+    }
+  } catch (e) {
+    console.error("addChatMessage: Error parsing chat history from localStorage. Clearing history.", e);
+    localStorage.removeItem("chatHistory");
+    chatMessages = [];
+  }
+
+  chatMessages.push(message);
+  localStorage.setItem("chatHistory", JSON.stringify(chatMessages));
 }
 
 // Fetch additional video details
@@ -671,6 +710,7 @@ function fetchVideoDetails(videoId) {
 
 // NUEVA FUNCIÓN: Actualiza la lista de usuarios activos en el DOM
 function updateActiveUsers(users) {
+  console.log("updateActiveUsers: Updating active users. Count:", users.length);
   const activeUsersElement = document.getElementById("activeUsers")
   activeUsersElement.innerHTML = ""
   users.forEach((user) => {
@@ -679,5 +719,11 @@ function updateActiveUsers(users) {
     li.textContent = user
     activeUsersElement.appendChild(li)
   })
+
+  // Si no hay nadie más conectado (o sólo está el usuario actual), se borra el historial del chat
+  if (users.length === 0 || (users.length === 1 && users[0] === window.username)) {
+    console.log("updateActiveUsers: Solo este cliente está conectado. Borrando historial del chat.");
+    localStorage.removeItem("chatHistory");
+  }
 }
 
