@@ -1,0 +1,20 @@
+
+BUGS
+
+- Corregir volumen general e individual logica e visual (botones feos)
+- Duracion NaNa
+- Al cargar la playlist no se sincroniza con todos los usuarios
+
+
+
+MEJORAS:
+
+- Agregar mas animaciones
+
+
+
+GENERAL:
+
+- Corregir Responsive
+-
+

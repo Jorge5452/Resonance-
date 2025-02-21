@@ -9,8 +9,8 @@ async def main():
     playlists = playlist_manager.load_all_playlists()
     print("Playlists cargadas:", playlists)
 
-    async with serve(handler, "localhost", 6789):
-        print("Servidor WebSocket iniciado en ws://localhost:6789")
+    async with serve(handler, "localhost", 8080):
+        print("Servidor WebSocket iniciado en ws://localhost:8080")
         await asyncio.Future()  # Mantiene el servidor en ejecución
 
 if __name__ == "__main__":

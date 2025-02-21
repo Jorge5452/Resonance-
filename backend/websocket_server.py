@@ -19,7 +19,7 @@ async def broadcast_active_users():
     await asyncio.gather(*(client.send(active_msg) for client in connected_clients))
 
 async def handler(websocket, path=None):
-    global globalPlaylist
+    global globalPlaylist  # Se declara al inicio para usar la variable global en toda la función
     try:
         async for message in websocket:
             data = json.loads(message)
@@ -53,8 +53,17 @@ async def handler(websocket, path=None):
                     "playlist": playlist
                 })
                 await broadcast(update_msg)
+            elif data["type"] == "playlist_selected":
+                # Actualiza la playlist global con la playlist seleccionada por el usuario
+                globalPlaylist = data["playlist"]
+                selected_msg = json.dumps({
+                    "type": "playlist_updated",
+                    "playlist": globalPlaylist,
+                    "autoPlay": True
+                })
+                await broadcast(selected_msg)
             elif data["type"] == "song_added":
-                # Un nuevo canción ha sido agregada para reproducirse en vivo
+                # Una nueva canción ha sido agregada para reproducirse en vivo
                 songData = data["song"]
                 globalPlaylist.append(songData)
                 playlist_msg = json.dumps({"type": "playlist_updated", "playlist": globalPlaylist})
@@ -67,6 +76,10 @@ async def handler(websocket, path=None):
                 globalPlaylist = data["playlist"]
                 const_message = json.dumps({"type": "playlist_updated", "playlist": globalPlaylist})
                 await broadcast(const_message)
+                
+            elif data["type"] == "volume_update":
+                # Difunde el cambio de volumen a todos los
+                await broadcast(json.dumps(data), sender=websocket)
             # Puedes agregar más tipos de mensajes (por ejemplo, sincronización de reproducción)
     except Exception as e:
         print("Error en conexión WebSocket:", e)
